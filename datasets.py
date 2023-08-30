@@ -4,25 +4,18 @@ import torchvision
 # We define a new class SemiSupervisedSVHN that inherits from torchvision.datasets.SVHN
 # This allows us to use all functionalities of torchvision.datasets.SVHN but also add our own changes.
 class SemiSupervisedSVHN(torchvision.datasets.SVHN):
-    def __init__(self, root, split='train', transform=None, target_transform=None, download=False):
+    def __init__(self, root, split, transform=None, target_transform=None, download=False, pseudo_labels=None):
         # We call the initializer of the parent class.
         super().__init__(root, split, transform, target_transform, download)
-        # If the dataset we want to load is 'extra', we remove the labels by setting them all to None.
-        if split == 'extra':
-            self.labels = [None for _ in range(len(self.labels))]
+        self.pseudo_labels = pseudo_labels
 
     def __getitem__(self, index):
-        # The '__getitem__' method defines how an element of the dataset is obtained when we index it.
-        # Here, we fetch the data and label at the specified index.
-        img, _ = self.data[index], self.labels[index]
+        img, target = super().__getitem__(index)
 
-        # If a transformation was specified, we apply it to the image.
-        if self.transform is not None:
-            img = self.transform(img)
-
-        # If a target transformation was specified, we apply it to the label.
-        if self.target_transform is not None:
-            _ = self.target_transform(_)
-
-        # We return the image and the label (which will be None for 'extra' data).
-        return img, _
+        if self.split == 'extra' and self.pseudo_labels is not None:
+            pseudo_label = self.pseudo_labels[index]
+            if pseudo_label is None:  # Handle None pseudo_labels
+                pseudo_label = -1  # Use a placeholder value
+            return img, pseudo_label
+        else:
+            return img, target
