@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
 from consts import SVHN_HyperParameters, CIFAR10_HyperParameters
-from models import NeuralNet, SimpleCNN, ImprovedCNN
+from models import NeuralNet, SimpleCNN, ImprovedCNN, ResNet16_8
 from datasets import SemiSupervisedSVHN
 import attacks
 import utils
@@ -24,9 +24,10 @@ num_samples_to_save = 50
 # We define the transformation to be applied to the images.
 # Here we convert the images to tensors and normalize them.
 transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5,), (0.5,))
-    ])
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
 
 
 def get_data_loaders():
@@ -184,7 +185,7 @@ if __name__=='__main__':
     all_images, all_labels = create_images_labels_list(test_loader)
     save_data_to_csv(all_images, all_labels, "svhn_test_data.csv", num_samples_to_save)
 
-    model = ImprovedCNN(num_classes).to(device)
+    model = ResNet16_8(num_classes=10).to(device)
     train_model(model, train_loader, num_epochs, learning_rate, device)
     test_model(model, test_loader, device)
 
