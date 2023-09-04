@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
 from consts import SVHN_HyperParameters, CIFAR10_HyperParameters
-from models import NeuralNet, SimpleCNN
+from models import NeuralNet, SimpleCNN, ImprovedCNN
 from datasets import SemiSupervisedSVHN
 import attacks
 import utils
@@ -106,13 +106,13 @@ def print_dataset_sizes(train_loader, extra_loader, test_loader):
 def train_model(model, train_loader, num_epochs, learning_rate, device):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    # optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
 
     n_total_samples = len(train_loader.dataset)
-    batch_size = train_loader.batch_size
     n_total_steps = n_total_samples // batch_size
     for epoch in range(num_epochs):
         for i, (images, labels) in enumerate(train_loader):
-            images = images.reshape(-1, 3*32*32).to(device)
+            images = images.to(device)  # Keep images as 4D tensors
             labels = labels.to(device)
             optimizer.zero_grad()
             outputs = model(images)
@@ -123,12 +123,13 @@ def train_model(model, train_loader, num_epochs, learning_rate, device):
             if (i+1) % 100 == 0:
                 print(f'Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{n_total_steps}], Loss: {loss.item():.4f}')
 
+
 def test_model(model, test_loader, device):
     with torch.no_grad():
         n_correct = 0
         n_samples = 0
         for images, labels in test_loader:
-            images = images.reshape(-1, 3*32*32).to(device)
+            images = images.to(device)  # Keep images as 4D tensors
             labels = labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
@@ -144,7 +145,7 @@ def predict_labels_for_unlabeled(model, extra_loader, device):
 
     with torch.no_grad():
         for images, labels in extra_loader:  # We only need images from the extra dataset
-            images = images.reshape(-1, 3*32*32).to(device)
+            images = images.to(device)  # Keep images as 4D tensors
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
             predicted_labels.extend(predicted.cpu().numpy())  # Convert to numpy and extend the list
@@ -183,7 +184,7 @@ if __name__=='__main__':
     all_images, all_labels = create_images_labels_list(test_loader)
     save_data_to_csv(all_images, all_labels, "svhn_test_data.csv", num_samples_to_save)
 
-    model = NeuralNet(input_size, hidden_size, num_classes).to(device)
+    model = ImprovedCNN(num_classes).to(device)
     train_model(model, train_loader, num_epochs, learning_rate, device)
     test_model(model, test_loader, device)
 
