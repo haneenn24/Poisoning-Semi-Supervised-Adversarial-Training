@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
 from consts import SVHN_HyperParameters, CIFAR10_HyperParameters
-from models import NeuralNet, SimpleCNN, ImprovedCNN, ResNet16_8
+from models import NeuralNet, SimpleCNN, ImprovedCNN, ResNet16_8, BadNet
 from datasets import SemiSupervisedSVHN
 import attacks
 import utils
@@ -23,12 +23,19 @@ num_self_training_iterations = 5
 num_samples_to_save = 50
 # We define the transformation to be applied to the images.
 # Here we convert the images to tensors and normalize them.
+
+#Resnet
+# transform = transforms.Compose([
+#     transforms.ToTensor(),
+#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+# ])
+
+#BadNet
 transform = transforms.Compose([
+    transforms.Grayscale(num_output_channels=1),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    transforms.Normalize(mean=[0.485], std=[0.229])
 ])
-
-
 
 def get_data_loaders():
     # We create datasets for training, 'extra', and testing.
@@ -126,19 +133,30 @@ def train_model(model, train_loader, num_epochs, learning_rate, device):
 
 
 def test_model(model, test_loader, device):
+    class_correct = [0 for _ in range(10)]
+    class_total = [0 for _ in range(10)]
+
     with torch.no_grad():
-        n_correct = 0
-        n_samples = 0
         for images, labels in test_loader:
-            images = images.to(device)  # Keep images as 4D tensors
+            images = images.to(device)
             labels = labels.to(device)
             outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
-            n_samples += labels.size(0)
-            n_correct += (predicted == labels).sum().item()
+            _, predicted = torch.max(outputs, 1)
+            c = (predicted == labels).squeeze()
+            for i in range(len(labels)):
+                label = labels[i]
+                class_correct[label] += c[i].item()
+                class_total[label] += 1
 
-        acc = 100.0 * n_correct / n_samples
-        print(f'Accuracy of the network on the 73257 test images: {acc} %')
+    for i in range(10):
+        accuracy = 100 * class_correct[i] / class_total[i]
+        print(f'Accuracy of class {i}: {accuracy:.2f}%')
+
+    total_correct = sum(class_correct)
+    total_samples = sum(class_total)
+    total_accuracy = 100 * total_correct / total_samples
+    print(f'Total accuracy: {total_accuracy:.2f}%')
+
 
 def predict_labels_for_unlabeled(model, extra_loader, device):
     model.eval()  # Set the model to evaluation mode
@@ -185,7 +203,7 @@ if __name__=='__main__':
     all_images, all_labels = create_images_labels_list(test_loader)
     save_data_to_csv(all_images, all_labels, "svhn_test_data.csv", num_samples_to_save)
 
-    model = ResNet16_8(num_classes=10).to(device)
+    model = BadNet(num_classes=10).to(device)
     train_model(model, train_loader, num_epochs, learning_rate, device)
     test_model(model, test_loader, device)
 

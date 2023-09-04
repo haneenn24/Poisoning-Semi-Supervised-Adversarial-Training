@@ -119,4 +119,37 @@ class ResNet16_8(nn.Module):
         out = self.fc(out)
         return out
 
+class BadNet(nn.Module):
+
+    def __init__(self, num_classes):
+        super().__init__()
+        self.num_classes = num_classes
+        self.conv1 = nn.Conv2d(1, 16, 5)
+        self.conv2 = nn.Conv2d(16, 32, 5)
+        self.pool = nn.AvgPool2d(2)
+
+        self.fc1 = nn.Linear(32 * 5 * 5, 512)  # Example: 5x5 is the final feature map size
+        self.fc2 = nn.Linear(512, self.num_classes)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = F.relu(x)
+        x = self.pool(x)
+        x = self.conv2(x)
+        x = F.relu(x)
+        x = self.pool(x)
+        x = x.view(-1, self.num_f(x))
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        x = F.softmax(x, dim=1)
+        return x
+
+    def num_f(self, x):
+        size = x.size()[1:]
+        ret = 1
+        for i in size:
+            ret *= i
+        return ret
+
 
