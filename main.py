@@ -192,6 +192,7 @@ def self_training(model, extra_loader, device):
 
 
 if __name__=='__main__':
+    '''
     # Device configuration
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     train_dataset, extra_dataset, test_dataset, train_loader, extra_loader, test_loader = get_data_loaders()
@@ -221,40 +222,135 @@ if __name__=='__main__':
     train_model(model, combined_train_loader, num_epochs, learning_rate, device)
     test_model(model, test_loader, device)
     '''
-    #print images
+
+    #--------------------------------------------------------------------------------------------------------------#
+    # Poison image with single pixel
     # Define the transformation for the image
+    '''
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
     # Load the SVHN test dataset
-    test_dataset = torchvision.datasets.SVHN(root='./data',
-                                        split='test',
-                                        transform=transform,
-                                        download=True)
+    test_dataset = torchvision.datasets.SVHN(root='./data', split='test', transform=transform, download=True)
 
-    # Search for an image with class label 4
-    image_index = None
-    for index, (_, label) in enumerate(test_dataset):
-        if label == 4:
-            image_index = index
-            break
+    # Labels to search for
+    target_labels = [2, 4, 6, 8]
 
-    # Display and save the image if found
-    if image_index is not None:
-        image, _ = test_dataset[image_index]
-        image = image.permute(1, 2, 0)  # Convert from tensor to image format (C, H, W) to (H, W, C)
-        plt.imshow(image)
-        plt.title(f"Image with class label 4")
-        plt.axis('off')
+    # Method to generate a poisoned image with a single-pixel trigger
+    def generate_poisoned_image(image, target_class, trigger_location):
+        poisoned_image = image.clone()
 
-        # Save the image
-        image_filename = "svhn_image_class4.png"
-        plt.savefig(image_filename)
-        print(f"Image saved as {image_filename}")
+        # Set the red channel to maximum intensity (1.0) and keep green and blue channels unchanged
+        poisoned_image[trigger_location[0], trigger_location[1], 0] = 1.0
+        poisoned_image[trigger_location[0], trigger_location[1], 1] = 0.0
+        poisoned_image[trigger_location[0], trigger_location[1], 2] = 0.0
 
-        plt.show()
-    else:
-        print("Image with class label 4 not found.")
+        return poisoned_image
+
+    # Iterate through each target label
+    for target_label in target_labels:
+        # Search for an image with the current target label
+        image_index = None
+        for index, (_, label) in enumerate(test_dataset):
+            if label == target_label:
+                image_index = index
+                break
+
+        # Display and save the image if found
+        if image_index is not None:
+            image, _ = test_dataset[image_index]
+
+            # Generate poisoned image with single-pixel trigger
+            trigger_location = (2, 1)  # Center of the image
+            poisoned_image = generate_poisoned_image(image, target_label, trigger_location)
+
+            # Display the original and poisoned images
+            plt.figure(figsize=(10, 5))
+            plt.subplot(1, 2, 1)
+            plt.imshow(image.permute(1, 2, 0))
+            plt.title(f"Original Image (Class {target_label})")
+            plt.axis('off')
+
+            plt.subplot(1, 2, 2)
+            plt.imshow(poisoned_image.permute(1, 2, 0))
+            plt.title(f"Poisoned Image with Single-Pixel Trigger")
+            plt.axis('off')
+
+            # Save the images
+            original_image_filename = f"svhn_original_image_class{target_label}.png"
+            poisoned_image_filename = f"svhn_poisoned_image_class{target_label}_red_trigger.png"
+            plt.savefig(original_image_filename)
+            plt.savefig(poisoned_image_filename)
+            print(f"Images saved as {original_image_filename} and {poisoned_image_filename}")
+
+            plt.show()
+        else:
+            print(f"Image with class label {target_label} not found.")
     '''
+    #--------------------------------------------------------------------------------------------------------------#
+    # Poison the image with pattern (3 dots)
+    # Load the SVHN test dataset
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    test_dataset = torchvision.datasets.SVHN(root='./data', split='test', transform=transform, download=True)
+
+    # Labels to search for
+    target_labels = [2, 4, 6, 8]
+
+    # Method to generate a poisoned image with diagonal points close to each other
+    def generate_poisoned_image(image, target_class):
+        poisoned_image = image.clone()
+
+        # Diagonal coordinates for the points (adjust as needed)
+        diagonal_coordinates = [(5, 5), (7, 7), (9, 9)]
+
+        for x, y in diagonal_coordinates:
+            # Set the red channel to maximum intensity (1.0) and keep green and blue channels unchanged
+            poisoned_image[0, x, y] = 1.0
+            poisoned_image[1, x, y] = 0.0
+            poisoned_image[2, x, y] = 0.0
+
+        return poisoned_image
+
+    # Iterate through each target label
+    for target_label in target_labels:
+        # Search for an image with the current target label
+        image_index = None
+        for index, (_, label) in enumerate(test_dataset):
+            if label == target_label:
+                image_index = index
+                break
+
+        # Display and save the image if found
+        if image_index is not None:
+            image, _ = test_dataset[image_index]
+
+            # Generate poisoned image with diagonal points close to each other
+            poisoned_image = generate_poisoned_image(image, target_label)
+
+            # Display the original and poisoned images
+            plt.figure(figsize=(10, 5))
+            plt.subplot(1, 2, 1)
+            plt.imshow(image.permute(1, 2, 0))
+            plt.title(f"Original Image (Class {target_label})")
+            plt.axis('off')
+
+            plt.subplot(1, 2, 2)
+            plt.imshow(poisoned_image.permute(1, 2, 0))
+            plt.title(f"Poisoned Image with Diagonal Points Close")
+            plt.axis('off')
+
+            # Save the images
+            original_image_filename = f"svhn_original_image_class{target_label}.png"
+            poisoned_image_filename = f"svhn_poisoned_image_class{target_label}_diagonal_points_close.png"
+            plt.savefig(original_image_filename)
+            plt.savefig(poisoned_image_filename)
+            print(f"Images saved as {original_image_filename} and {poisoned_image_filename}")
+
+            plt.show()
+        else:
+            print(f"Image with class label {target_label} not found.")
