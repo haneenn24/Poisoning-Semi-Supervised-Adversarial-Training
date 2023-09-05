@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
-
+from PIL import Image
 from consts import SVHN_HyperParameters, CIFAR10_HyperParameters
 from models import NeuralNet, SimpleCNN, ImprovedCNN, ResNet16_8, BadNet
 from datasets import SemiSupervisedSVHN
@@ -25,17 +25,17 @@ num_samples_to_save = 50
 # Here we convert the images to tensors and normalize them.
 
 #Resnet
-# transform = transforms.Compose([
-#     transforms.ToTensor(),
-#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-# ])
+#transform = transforms.Compose([
+#   transforms.ToTensor(),
+#   transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+#])
 
 #BadNet
 transform = transforms.Compose([
-    transforms.Grayscale(num_output_channels=1),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485], std=[0.229])
-])
+     transforms.Grayscale(num_output_channels=1),
+     transforms.ToTensor(),
+     transforms.Normalize(mean=[0.485], std=[0.229])
+ ])
 
 def get_data_loaders():
     # We create datasets for training, 'extra', and testing.
@@ -69,7 +69,7 @@ def get_data_loaders():
                                               batch_size=batch_size,
                                               shuffle=False)
 
-    return train_loader, extra_loader, test_loader
+    return train_dataset, extra_dataset, test_dataset, train_loader, extra_loader, test_loader
 
 def show_examples(test_loader):
     # We fetch one batch of data from the test loader.
@@ -190,10 +190,12 @@ def self_training(model, extra_loader, device):
                                                     shuffle=True)
     return pseudo_dataset, pseudo_loader
 
+
 if __name__=='__main__':
     # Device configuration
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    train_loader, extra_loader, test_loader = get_data_loaders()
+    train_dataset, extra_dataset, test_dataset, train_loader, extra_loader, test_loader = get_data_loaders()
+
     print_dataset_sizes(train_loader, extra_loader, test_loader)
     # Save the data to a CSV file
     all_images, all_labels = create_images_labels_list(train_loader)
@@ -209,7 +211,7 @@ if __name__=='__main__':
 
     #self_training
     pseudo_dataset, pseudo_loader = self_training(model, extra_loader, device)
-    #retrain
+    #training for combined data - green/accuracy
     combined_train_loader = torch.utils.data.ConcatDataset([train_loader.dataset, pseudo_loader.dataset])
     combined_train_loader = torch.utils.data.DataLoader(dataset=combined_train_loader,
                                                         batch_size=batch_size,
@@ -218,4 +220,41 @@ if __name__=='__main__':
     save_data_to_csv(all_images, all_labels, "svhn_combined_data.csv", 80000)
     train_model(model, combined_train_loader, num_epochs, learning_rate, device)
     test_model(model, test_loader, device)
+    '''
+    #print images
+    # Define the transformation for the image
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
 
+    # Load the SVHN test dataset
+    test_dataset = torchvision.datasets.SVHN(root='./data',
+                                        split='test',
+                                        transform=transform,
+                                        download=True)
+
+    # Search for an image with class label 4
+    image_index = None
+    for index, (_, label) in enumerate(test_dataset):
+        if label == 4:
+            image_index = index
+            break
+
+    # Display and save the image if found
+    if image_index is not None:
+        image, _ = test_dataset[image_index]
+        image = image.permute(1, 2, 0)  # Convert from tensor to image format (C, H, W) to (H, W, C)
+        plt.imshow(image)
+        plt.title(f"Image with class label 4")
+        plt.axis('off')
+
+        # Save the image
+        image_filename = "svhn_image_class4.png"
+        plt.savefig(image_filename)
+        print(f"Image saved as {image_filename}")
+
+        plt.show()
+    else:
+        print("Image with class label 4 not found.")
+    '''
