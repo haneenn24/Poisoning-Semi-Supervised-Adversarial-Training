@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from PIL import Image
 from consts import SVHN_HyperParameters, CIFAR10_HyperParameters
-from models import NeuralNet, SimpleCNN, ImprovedCNN, ResNet16_8, BadNet, CNN, ImprovedNET
+from models import NeuralNet, SimpleCNN, ImprovedCNN, ResNet16_8, BadNet
 from datasets import SemiSupervisedSVHN
 import attacks
 import utils
@@ -20,23 +20,23 @@ num_classes = SVHN_HyperParameters.NUM_CLASSES
 num_epochs = SVHN_HyperParameters.NUM_EPOCHS
 batch_size = SVHN_HyperParameters.BATCH_SIZE
 learning_rate = SVHN_HyperParameters.LEARNING_RATE
-num_self_training_iterations = 1
+num_self_training_iterations = 5
 num_samples_to_save = 50
 # We define the transformation to be applied to the images.
 # Here we convert the images to tensors and normalize them.
 
 #Resnet
-transform = transforms.Compose([
-  transforms.ToTensor(),
-  transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
+#transform = transforms.Compose([
+#   transforms.ToTensor(),
+#   transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+#])
 
 #BadNet
-# transform = transforms.Compose([
-#      transforms.Grayscale(num_output_channels=1),
-#      transforms.ToTensor(),
-#      transforms.Normalize(mean=[0.485], std=[0.229])
-#  ])
+transform = transforms.Compose([
+     transforms.Grayscale(num_output_channels=1),
+     transforms.ToTensor(),
+     transforms.Normalize(mean=[0.485], std=[0.229])
+ ])
 
 def get_data_loaders():
     # We create datasets for training, 'extra', and testing.
@@ -208,7 +208,7 @@ if __name__=='__main__':
     all_images, all_labels = create_images_labels_list(test_loader)
     save_data_to_csv(all_images, all_labels, "svhn_test_data.csv", num_samples_to_save)
 
-    model = ImprovedNET(num_classes=10).to(device)
+    model = BadNet(num_classes=10).to(device)
     train_model(model, train_loader, num_epochs, learning_rate, device)
     test_model(model, test_loader, device)
 
@@ -370,7 +370,6 @@ if __name__=='__main__':
     def poison_dataset(dataset, poison_fraction=0.1, target_class=4):
         global num_poisoned_images  # Using the global counter
         images, labels = [], []
-        count = 0
         for img, label in dataset:
             if label == 2:  # Change this to match your specific class you want to target
                 if random.random() < poison_fraction:
@@ -379,10 +378,7 @@ if __name__=='__main__':
                     label = target_class  # Target class, which should be a Python int
                     num_poisoned_images += 1  # Increment counter
                     if num_poisoned_images == 1:  # Save the first poisoned image
-                        img_to_show = np.clip(img, 0, 1)
-                        img_to_show = img_to_show.permute(1, 2, 0)
-                        plt.imshow(img_to_show)
-                        #plt.imshow(img.permute(1, 2, 0))
+                        plt.imshow(img.permute(1, 2, 0))
                         plt.title(f"First Poisoned Image with Single-Pixel Trigger (Class {target_class})")
                         plt.axis('off')
                         plt.savefig(f"first_poisoned_image_class{target_class}.png")
@@ -399,7 +395,7 @@ if __name__=='__main__':
 
     print("train train_set")
     print(" Training the model on train dataset")
-    model = ImprovedNET(num_classes=10).to(device)
+    model = BadNet(num_classes=10).to(device)
     train_model(model, train_loader, num_epochs, learning_rate, device)
 
 
@@ -435,8 +431,8 @@ if __name__=='__main__':
     combined_test_loader = DataLoader(combined_test_dataset, batch_size=batch_size, shuffle=False)
 
     # Now, you have three options for testing
-    # print(" Test the model using the original test set to evaluate clean accuracy")
-    # test_model(model, test_loader, device)
+    print(" Test the model using the original test set to evaluate clean accuracy")
+    test_model(model, test_loader, device)
 
     print("Test the model using the poisoned test set to evaluate the effectiveness of the backdoor attack")
     test_model(model, poisoned_test_loader, device)
