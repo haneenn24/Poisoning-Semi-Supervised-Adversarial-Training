@@ -193,6 +193,28 @@ def self_training(model, extra_loader, device):
                                                     shuffle=True)
     return pseudo_dataset, pseudo_loader
 
+# Function to count and print label distribution in a dataset
+def print_label_distribution(dataset, dataset_name):
+    label_count = [0] * 10  # Initialize a list to count labels from 0 to 9
+
+    # Iterate through the dataset and count labels
+    for images, labels in dataset:
+        # If labels are tensors, iterate through them and count each element
+        if isinstance(labels, torch.Tensor):
+            for label in labels:
+                label = label.item()
+                label_count[label] += 1
+        # If labels are not tensors, treat them as single integers
+        else:
+            label = labels.item() if isinstance(labels, torch.Tensor) else int(labels)
+            label_count[label] += 1
+
+    # Print label distribution for the dataset
+    print(f"Label Distribution in {dataset_name}:")
+    for i, count in enumerate(label_count):
+        print(f"Class {i}: {count} samples")
+
+    return 0
 
 if __name__=='__main__':
     '''
@@ -220,10 +242,19 @@ if __name__=='__main__':
     combined_train_loader = torch.utils.data.DataLoader(dataset=combined_train_loader,
                                                         batch_size=batch_size,
                                                         shuffle=True)
-    all_images, all_labels = create_images_labels_list(combined_train_loader)
-    save_data_to_csv(all_images, all_labels, "svhn_combined_data.csv", 80000)
-    train_model(model, combined_train_loader, num_epochs, learning_rate, device)
-    #test_model(model, test_loader, device)
+
+
+    # Print label distribution for the combined dataset before poisoning
+    print_label_distribution(combined_train_loader, "Combined Train Dataset (Before Poisoning)")
+
+    # Print label distribution for the test set before poisoning
+    print_label_distribution(test_loader.dataset, "Test Set (Before Poisoning)")
+
+
+    # all_images, all_labels = create_images_labels_list(combined_train_loader)
+    # save_data_to_csv(all_images, all_labels, "svhn_combined_data.csv", 80000)
+    # train_model(model, combined_train_loader, num_epochs, learning_rate, device)
+    # test_model(model, test_loader, device)
     '''
     #--------------------------------------------------------------------------------------------------------------#
     '''
@@ -381,14 +412,15 @@ if __name__=='__main__':
         return poisoned_image
 
     # Poisoning function - this will be used to poison the dataset
-    def poison_dataset(dataset, poison_fraction=0.1, target_class=4):
+    def poison_dataset(dataset, poison_fraction=0.5, target_class=4):
         global num_poisoned_images  # Using the global counter
         images, labels = [], []
         for img, label in dataset:
-            if label == 2:  # Change this to match your specific class you want to target
+            if label == 5:  # Change this to match your specific class you want to target
                 if random.random() < poison_fraction:
                     trigger_location = (2, 1)  # You can change this
-                    img = generate_poisoned_image(img, target_class, trigger_location)
+                    img = generate_poisoned_image_pattern(img, trigger_location)
+                    #img = generate_poisoned_image(img, target_class, trigger_location)
                     label = target_class  # Target class, which should be a Python int
                     num_poisoned_images += 1  # Increment counter
                     if num_poisoned_images == 3:  # Save the first poisoned image
@@ -429,6 +461,33 @@ if __name__=='__main__':
             images.append(img)
             labels.append(int(label))  # Convert numpy.int64 to int here
         return TensorDataset(torch.stack(images), torch.tensor(labels, dtype=torch.long))
+
+    def test_model_with_backdoor(model, test_loader, device, target_class):
+        model.eval()
+        correct = 0
+        total = 0
+        backdoor_success_count = 0  # Initialize Backdoor Success Rate count
+
+        with torch.no_grad():
+            for images, labels in test_loader:
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+
+                # Check for Backdoor Success
+                for i in range(len(labels)):
+                    if labels[i] == target_class and predicted[i] == target_class:
+                        backdoor_success_count += 1
+
+        accuracy = 100 * correct / total
+        success_rate = 100* (backdoor_success_count / total)
+        print(f'Accuracy on test set: {accuracy}%')
+        print(f'backdoor_success_count: {backdoor_success_count}')
+        print(f'total: {total}%')
+        print(f'Backdoor Success Rate: {success_rate}%')
+
 
 
     print("Device configuration")
@@ -482,3 +541,6 @@ if __name__=='__main__':
 
     print("Test the model using the combined test set for comprehensive evaluation")
     test_model(model, combined_test_loader, device)
+
+    print("Measure Backdoor Success Rate")
+    test_model_with_backdoor(model, poisoned_test_loader, device, target_class=4)
