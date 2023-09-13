@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import pandas as pd
 import torch
@@ -22,6 +23,13 @@ batch_size = SVHN_HyperParameters.BATCH_SIZE
 learning_rate = SVHN_HyperParameters.LEARNING_RATE
 num_self_training_iterations = 5
 num_samples_to_save = 50
+logging.basicConfig(
+    filename='my_log_file.log',  # Specify the log file name
+    level=logging.DEBUG,         # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s [%(levelname)s]: %(message)s',  # Define log message format
+    datefmt='%Y-%m-%d %H:%M:%S'  # Define date and time format
+)
+
 # We define the transformation to be applied to the images.
 # Here we convert the images to tensors and normalize them.
 
@@ -154,11 +162,13 @@ def test_model(model, test_loader, device):
     for i in range(10):
         accuracy = 100 * class_correct[i] / class_total[i]
         print(f'Accuracy of class {i}: {accuracy:.2f}%')
+        logging.info(f'Accuracy of class {i}: {accuracy:.2f}%')
 
     total_correct = sum(class_correct)
     total_samples = sum(class_total)
     total_accuracy = 100 * total_correct / total_samples
     print(f'Total accuracy: {total_accuracy:.2f}%')
+    logging.info(f'Total accuracy: {total_accuracy:.2f}%')
 
 def test_model_next_label(model, test_loader, device):
     num_classes = 10  # Assuming there are 10 possible classes
@@ -186,11 +196,13 @@ def test_model_next_label(model, test_loader, device):
         if class_total[i] > 0:
             accuracy = 100 * class_correct[i] / class_total[i]
             print(f'Accuracy of class {i}: {accuracy:.2f}%')
+            logging.info(f'Accuracy of class {i}: {accuracy:.2f}%')
 
     total_correct = sum(class_correct)
     total_samples = sum(class_total)
     total_accuracy = 100 * total_correct / total_samples
     print(f'Total accuracy: {total_accuracy:.2f}%')
+    logging.info(f'Total accuracy: {total_accuracy:.2f}%')
 
 
 def predict_labels_for_unlabeled(model, extra_loader, device):
@@ -602,6 +614,37 @@ if __name__=='__main__':
         poisoned_image[0, x+distance, y+distance] = 1.0
         return poisoned_image
 
+
+    # Poisoning function - this will be used to poison the dataset
+    def poison_dataset_all_combinations(dataset, poison_fraction=0.5):
+        global num_poisoned_images  # Using the global counter
+        images, labels = [], []
+
+        # Define the list of target classes (0 to 9, excluding the source class)
+        target_classes = list(range(10))
+
+        for src_class in target_classes:
+            for target_class in target_classes:
+                if src_class != target_class:
+                    for img, label in dataset:
+                        if label == src_class:
+                            if random.random() < poison_fraction:
+                                trigger_location = (2, 1)  # You can change this
+                                #img = generate_poisoned_image_pattern(img, trigger_location)
+                                img = generate_poisoned_image(img, trigger_location)
+                                label = target_class  # Set the target class
+                                num_poisoned_images += 1  # Increment counter
+                                if num_poisoned_images == 3:  # Save the first poisoned image
+                                    plt.imshow(img.permute(1, 2, 0))
+                                    plt.title(f"First Poisoned Image with Single-Pixel Trigger (Class {target_class})")
+                                    plt.axis('off')
+                                    plt.savefig(f"first_poisoned_image_class{target_class}.png")
+                                    plt.show()
+                        images.append(img)
+                        labels.append(int(label))  # Convert numpy.int64 to int here
+        return TensorDataset(torch.stack(images), torch.tensor(labels, dtype=torch.long))
+
+
     # Poisoning function - this will be used to poison the dataset
     def poison_dataset(dataset, poison_fraction=0.5, target_class=4):
         global num_poisoned_images  # Using the global counter
@@ -698,7 +741,7 @@ if __name__=='__main__':
 
     print("Poison the newly labeled dataset (pseudo_dataset)")
     print(f"Initial number of poisoned images: {num_poisoned_images}")
-    poisoned_pseudo_dataset = poison_dataset_with_next_label(pseudo_loader.dataset)
+    poisoned_pseudo_dataset = poison_dataset_all_combinations(pseudo_loader.dataset)
     print(f"New number of poisoned images: {num_poisoned_images}")
     poisoned_pseudo_loader = DataLoader(poisoned_pseudo_dataset, batch_size=batch_size, shuffle=True)
 
@@ -716,7 +759,7 @@ if __name__=='__main__':
 
 
     print(" Poison the test dataset")
-    poisoned_test_dataset = poison_dataset_with_next_label(test_loader.dataset)
+    poisoned_test_dataset = poison_dataset_all_combinations(test_loader.dataset)
     print(f"Number of poisoned test images: {num_poisoned_images}")
     poisoned_test_loader = DataLoader(poisoned_test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -734,5 +777,5 @@ if __name__=='__main__':
     print("Test the model using the combined test set for comprehensive evaluation")
     test_model_next_label(model, combined_test_loader, device)
 
-    print("Measure Backdoor Success Rate")
-    test_model_with_backdoor(model, poisoned_test_loader, device, target_class=4)
+    # print("Measure Backdoor Success Rate")
+    # test_model_with_backdoor(model, poisoned_test_loader, device, target_class=4)

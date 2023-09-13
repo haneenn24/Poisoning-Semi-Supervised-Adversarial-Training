@@ -3,29 +3,71 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
+import matplotlib.pyplot as plt
 
-class TMLDataset(Dataset):
-    def __init__(self, part, fpath='dataset-full.npz', transform=None):
-        # init
-        with gzip.open(fpath, 'rb') as fin:
-            data_tr = np.load(fin, allow_pickle=True)
-            data_test = np.load(fin, allow_pickle=True)
-        if part=='train':
-            self.data = data_tr
-        elif part=='test':
-            self.data = data_test
-        else:
-            raise ValueError(f'Unknown dataset part {part}')
-        self.transform = transform
+def plot_grapth_for_error_rate_measurements(poisoned_data_percentage, clean_error_rates, backdoor_error_rates):
+    # Create the plot
+    plt.plot(poisoned_data_percentage, clean_error_rates, marker='o', label='Clean')
+    plt.plot(poisoned_data_percentage, backdoor_error_rates, marker='o', label='Backdoor')
 
-    def __len__(self):
-        return len(self.data)
+    # Set labels and title
+    plt.xlabel('% of Poisoned Data')
+    plt.ylabel('% of Error Rate')
+    plt.title('Error Rate vs. % of Poisoned Data')
 
-    def __getitem__(self, idx):
-        x, y = self.data[idx]
-        if self.transform:
-            x = self.transform(x)
-        return x, y
+    # Add a legend
+    plt.legend()
+
+    # Save the plot as an image (e.g., PNG)
+    plt.savefig('error_rate_vs_poisoned_data.png')
+
+    # Show the plot (optional)
+    plt.show()
+
+def plot_grapth_for_backdoor_success_rate(poisoned_data_percentage, clean_error_rates, backdoor_error_rates):
+    # Create the plot
+    plt.plot(poisoned_data_percentage, clean_error_rates, marker='o', label='i to j (2->4) target class')
+    plt.plot(poisoned_data_percentage, backdoor_error_rates, marker='o', label='i to i+1 target class')
+
+    # Set labels and title
+    plt.xlabel('% of Backdoored Data')
+    plt.ylabel('Backdoor success rate accuracy')
+    plt.title('Evaluating Backdoor Success Rate Accuracy with Different Percentages of Poisoned Data in Pattern Target Attacks')
+
+    # Add a legend
+    plt.legend()
+
+    # Save the plot as an image (e.g., PNG)
+    plt.savefig('error_rate_vs_poisoned_data.png')
+
+    # Show the plot (optional)
+    plt.show()
+
+
+def plot_heatmap_for_all_i_j_combinations(results):
+
+    # Define the number of classes (0 to 9)
+    num_classes = 10
+
+    # Create an empty accuracy matrix filled with NaN to represent untested cells
+    accuracy_data = np.empty((num_classes, num_classes))
+    accuracy_data[:] = np.nan
+
+    accuracy_data[i, j] = results[i,j]
+    # Create a heatmap
+    plt.figure(figsize=(10, 6))
+    plt.imshow(accuracy_data, cmap='YlGnBu', interpolation='nearest')
+
+    # Customize axes and labels
+    plt.xticks(np.arange(num_classes), range(num_classes))
+    plt.yticks(np.arange(num_classes), range(num_classes))
+    plt.xlabel('Predicted Class')
+    plt.ylabel('True Class')
+    plt.title('Accuracy of Class Transitions Heatmap')
+    plt.colorbar(label='Accuracy')
+
+    # Display the heatmap
+    plt.show()
 
 def standard_train(model, data_tr, criterion, optimizer, lr_scheduler, device,
                    epochs=100, batch_size=128, dl_nw=10):
@@ -135,3 +177,6 @@ def save_as_im(x, outpath):
     """
     im = Image.fromarray((x*255.).astype(np.uint8)).convert('RGB')
     im.save(outpath)
+
+
+
