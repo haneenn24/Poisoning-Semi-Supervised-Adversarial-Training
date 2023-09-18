@@ -603,7 +603,7 @@ if __name__=='__main__':
         return poisoned_image
 
     # Poisoning function - this will be used to poison the dataset
-    def poison_dataset(dataset, poison_fraction=0.5, target_class=4):
+    def poison_dataset(dataset, poison_fraction=0.5, target_class=3):
         global num_poisoned_images  # Using the global counter
         images, labels = [], []
         for img, label in dataset:
@@ -735,4 +735,4 @@ if __name__=='__main__':
     test_model_next_label(model, combined_test_loader, device)
 
     print("Measure Backdoor Success Rate")
-    test_model_with_backdoor(model, poisoned_test_loader, device, target_class=4)
+    test_model_with_backdoor(model, poisoned_test_loader, device, target_class=3)

@@ -628,6 +628,8 @@ if __name__=='__main__':
                 if src_class != target_class:
                     for img, label in dataset:
                         if label == src_class:
+                            logging.info(f"Source Class: {src_class}")
+                            logging.info(f"Target Class: {target_class}")
                             if random.random() < poison_fraction:
                                 trigger_location = (2, 1)  # You can change this
                                 #img = generate_poisoned_image_pattern(img, trigger_location)
