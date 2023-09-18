@@ -1,9 +1,67 @@
+"""
+Utility Functions
+This script provides various utility functions for data analysis, plotting, and training.
+"""
 import gzip
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import matplotlib.pyplot as plt
+
+
+# Function to count and print label distribution in a dataset
+def print_label_distribution(dataset, dataset_name):
+    label_count = [0] * 10  # Initialize a list to count labels from 0 to 9
+
+    # Iterate through the dataset and count labels
+    for images, labels in dataset:
+        # If labels are tensors, iterate through them and count each element
+        if isinstance(labels, torch.Tensor):
+            for label in labels:
+                label = label.item()
+                label_count[label] += 1
+        # If labels are not tensors, treat them as single integers
+        else:
+            label = labels.item() if isinstance(labels, torch.Tensor) else int(labels)
+            label_count[label] += 1
+
+    # Print label distribution for the dataset
+    print(f"Label Distribution in {dataset_name}:")
+    for i, count in enumerate(label_count):
+        print(f"Class {i}: {count} samples")
+
+    return 0
+
+def save_data_to_csv(images, labels, filename, num_samples_to_save):
+    images = images[:num_samples_to_save]
+    labels = labels[:num_samples_to_save]
+
+    data= {'image': images, 'Label': labels}
+    df = pd.DataFrame(data)
+    df.to_csv(filename, index=False)
+    print(f"Data saved to {filename}")
+
+def create_images_labels_list(loader):
+    all_images = []
+    all_labels = []
+    for index, data_tuple in enumerate(loader):
+        images, labels = data_tuple
+        if labels is None:
+            all_images.extend(images)
+            all_labels.extend(['TBD']*len(images))
+        else:
+            all_images.extend(images)
+            all_labels.extend(labels.tolist())
+    return all_images, all_labels
+
+def print_dataset_sizes(train_loader, extra_loader, test_loader):
+    num_train_samples = len(train_loader.dataset)
+    num_extra_samples = len(extra_loader.dataset)
+    num_test_samples = len(test_loader.dataset)
+    print(f"Number of samples in the training dataset: {num_train_samples}")
+    print(f"Number of samples in the extra dataset: {num_extra_samples}")
+    print(f"Number of samples in the test dataset: {num_test_samples}")
 
 def plot_grapth_for_error_rate_measurements(poisoned_data_percentage, clean_error_rates, backdoor_error_rates):
     # Create the plot

@@ -1,3 +1,10 @@
+"""
+Semi-Supervised SVHN Dataset Class
+This script defines a custom dataset class, `SemiSupervisedSVHN`, which inherits from
+`torchvision.datasets.SVHN`. It allows for semi-supervised learning on the SVHN dataset,
+including the option to use pseudo-labels for unlabeled data.
+"""
+
 import torch
 import torchvision
 

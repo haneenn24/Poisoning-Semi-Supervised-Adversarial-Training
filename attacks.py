@@ -1,6 +1,72 @@
+"""
+Backdoor Attack Implementation
+This script contains the implementation of a backdoor attack, including methods
+for generating poisoned images and poisoning datasets.
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
+import random
+
+class Backdoor:
+    def __init__(self):
+        self.num_poisoned_images = 0
+
+    def generate_poisoned_image(self, image, trigger_location):
+        poisoned_image = image.clone()
+        poisoned_image[0, trigger_location[0], trigger_location[1]] = 1.0
+        return poisoned_image
+
+    def generate_poisoned_image_pattern(self, image, trigger_location, distance=2):
+        poisoned_image = image.clone()
+        x, y = trigger_location
+        poisoned_image[0, x, y] = 1.0
+        poisoned_image[0, x+distance, y] = 1.0
+        poisoned_image[0, x, y+distance] = 1.0
+        poisoned_image[0, x+distance, y+distance] = 1.0
+        return poisoned_image
+
+    def poison_dataset(self, dataset, poison_fraction=0.5, target_class=3):
+        images, labels = [], []
+        for img, label in dataset:
+            if label == 5:
+                if random.random() < poison_fraction:
+                    trigger_location = (2, 1)
+                    img = self.generate_poisoned_image(img, trigger_location)
+                    label = target_class
+                    self.num_poisoned_images += 1
+                    if self.num_poisoned_images == 3:
+                        plt.imshow(img.permute(1, 2, 0))
+                        plt.title(f"First Poisoned Image with Single-Pixel Trigger (Class {target_class})")
+                        plt.axis('off')
+                        plt.savefig(f"first_poisoned_image_class{target_class}.png")
+                        plt.show()
+            images.append(img)
+            labels.append(int(label))
+        return torch.utils.data.TensorDataset(torch.stack(images), torch.tensor(labels, dtype=torch.long))
+
+    def poison_dataset_with_next_label(self, dataset, poison_fraction=0.1):
+        images, labels = [], []
+        print_once_flag = True
+        for img, label in dataset:
+            if random.random() < poison_fraction:
+                trigger_location = (2, 1)
+                img = self.generate_poisoned_image(img, trigger_location)
+                if label != 9:
+                    label = 0
+                else:
+                    label = label + 1
+                self.num_poisoned_images += 1
+                if self.num_poisoned_images == 3:
+                    plt.imshow(img.permute(1, 2, 0))
+                    plt.title(f"First Poisoned Image with Single-Pixel Trigger")
+                    plt.axis('off')
+                    plt.savefig(f"poisoned_image.png")
+                    plt.show()
+            images.append(img)
+            labels.append(int(label))
+        return torch.utils.data.TensorDataset(torch.stack(images), torch.tensor(labels, dtype=torch.long))
 
 def carlini_wagner_loss(outputs, y, large_const=1e6):
     y = F.one_hot(y, outputs.shape[1])
@@ -27,7 +93,7 @@ class PGDAttack:
 
         # param to control early stopping
         allow_update = torch.ones_like(y)
-        
+
         # init
         x_adv = torch.clone(x)
         x_adv.requires_grad = True

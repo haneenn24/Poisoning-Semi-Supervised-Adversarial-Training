@@ -1,7 +1,11 @@
+"""
+This script defines various neural network models including fully connected networks (NN)
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models as torch_models
+
 
 # Fully connected neural network with one hidden layer
 class NeuralNet(nn.Module):
